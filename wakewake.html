@@ -3,94 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Group Divider for Discord</title>
+    <title>Party Divider</title>
     <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 20px auto; padding: 20px; background: #f4f4f9; }
-        textarea { width: 100%; height: 100px; margin-bottom: 10px; }
-        .controls { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
-        button { padding: 10px 20px; cursor: pointer; background: #5865F2; color: white; border: none; border-radius: 5px; font-weight: bold; }
-        button:hover { background: #4752C4; }
-        #result { background: white; padding: 15px; border-radius: 5px; border: 1px solid #ccc; white-space: pre-wrap; margin-top: 20px; }
-        input[type="text"] { flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-        /* スマホ向けの調整 */
-@media (max-width: 480px) {
-    body { padding: 10px; }
-    button { 
-        width: 100%; 
-        padding: 15px; 
-        font-size: 1.1rem; 
-    }
-    textarea { font-size: 16px; /* iPhoneで入力時にズームされるのを防ぐ */ }
-}
+        body { font-family: sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background: #f4f4f9; color: #333; }
+        textarea { width: 100%; height: 150px; margin-bottom: 15px; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
+        
+        .button-group { display: flex; flex-direction: column; gap: 10px; }
+        
+        button { 
+            width: 100%; padding: 15px; border: none; border-radius: 8px; 
+            font-weight: bold; font-size: 1rem; cursor: pointer; transition: 0.2s;
+        }
+
+        .btn-shuffle { background: #ebedef; color: #4f5660; border: 1px solid #ccc; }
+        .btn-shuffle:active { background: #dbdee1; }
+
+        .btn-main { background: #5865F2; color: white; }
+        .btn-main:active { background: #4752C4; transform: scale(0.98); }
+
+        #result { 
+            background: #fff; padding: 15px; border-radius: 8px; border: 2px solid #5865F2; 
+            white-space: pre-wrap; margin-top: 15px; display: none; font-family: monospace; font-size: 0.95rem;
+        }
+        .hint { font-size: 0.85rem; color: #666; margin-top: 10px; text-align: center; line-height: 1.4; }
     </style>
 </head>
 <body>
 
-    <h2>👥 グループ分けツール</h2>
+    <h2 style="text-align: center;">👥 わけわけ</h2>
     
-    <label>メンバー名（改行区切り）:</label>
-    <textarea id="memberList" placeholder="田中&#13;&#10;佐藤&#13;&#10;鈴木..."></textarea>
+    <textarea id="memberList" placeholder="名前をスペースや改行で区切って入力..."></textarea>
 
-    <div class="controls">
-        <label>グループ数:</label>
-        <select id="groupCount">
-            <option value="2">2グループ</option>
-            <option value="3">3グループ</option>
-            <option value="4" selected>4グループ</option>
-        </select>
+    <div class="button-group">
+        <button class="btn-shuffle" onclick="divide(false)">わけわけ / もう一度</button>
+        
+        <button id="confirmBtn" class="btn-main" onclick="divide(true)" style="display: none;">結果をコピーして Discordへ</button>
     </div>
 
-    <div class="controls">
-        <label>Discord チャンネルURL:</label>
-        <input type="text" id="discordUrl" placeholder="https://discord.com/channels/サーバID/チャンネルID">
-    </div>
-
-    <button onclick="divideAndGo()">グループ分け ＆ Discordを開く</button>
-
-    <div id="result">結果がここに表示されます</div>
+    <div id="result"></div>
+    <p class="hint">
+        「わけわけ」で振り分けられます。<br>
+        「Discordへ」を押すとコピーして＃パーティー全体テキストを開きます。
+    </p>
 
     <script>
-        function divideAndGo() {
-            const text = document.getElementById('memberList').value.trim();
-            const n = parseInt(document.getElementById('groupCount').value);
-            const discordUrl = document.getElementById('discordUrl').value.trim();
-            
-            if (!text) { alert('メンバーを入力してください'); return; }
+        const DISCORD_CHANNEL_URL = 'https://discord.com/channels/1376118555078164501/1444265860947509300';
 
-            // メンバーを配列化してシャッフル
-            let members = text.split(/\n/).map(m => m.trim()).filter(m => m !== "");
+        function toFullWidth(n) {
+            return String(n).replace(/[0-9]/g, function(s) {
+                return String.fromCharCode(s.charCodeAt(0) + 0xFEE0);
+            });
+        }
+
+        function divide(isFinal) {
+            const rawInput = document.getElementById('memberList').value;
+            let members = rawInput.split(/[\n\s　]+/).map(m => m.trim()).filter(m => m !== "");
+            
+            if (members.length === 0) { 
+                alert('メンバーを入力してください'); 
+                return; 
+            }
+
+            const count = members.length;
+            const groupNum = Math.ceil(count / 4);
+
+            // シャッフル
             for (let i = members.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [members[i], members[j]] = [members[j], members[i]];
             }
 
-            // グループ分け（なるべく均等に）
-            let groups = Array.from({ length: n }, () => []);
+            // 振り分け
+            let groups = Array.from({ length: groupNum }, () => []);
             members.forEach((member, index) => {
-                groups[index % n].push(member);
+                groups[index % groupNum].push(member);
             });
 
-            // 結果のテキスト整形
-            let resultText = "【グループ分け結果】\n";
+            // テキスト整形
+            let resultLines = [];
             groups.forEach((group, i) => {
-                if (group.length > 0) {
-                    resultText += `\nチーム ${i + 1}: ${group.join(', ')}`;
-                }
+                const fullWidthNum = toFullWidth(i + 1);
+                resultLines.push(`＃⁠パーティー${fullWidthNum}テキスト　,${group.join(',')}`);
             });
+            let resultText = resultLines.join('\n');
 
             // 画面表示
-            document.getElementById('result').innerText = resultText;
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerText = resultText;
+            resultDiv.style.display = 'block';
 
-            // クリップボードにコピー
-            navigator.clipboard.writeText(resultText).then(() => {
-                alert('結果をコピーしました！Discordに貼り付けてください。');
-                // Discordを開く
-                if (discordUrl) {
-                    window.open(discordUrl, '_blank');
+            // 確定ボタンを表示
+            document.getElementById('confirmBtn').style.display = 'block';
+
+            // 「確定」時のみコピーと移動を実行
+            if (isFinal) {
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(resultText).then(() => {
+                        alert('コピーしました！Discordに移動します。');
+                        window.location.href = DISCORD_CHANNEL_URL;
+                    }).catch(err => {
+                        window.location.href = DISCORD_CHANNEL_URL;
+                    });
                 } else {
-                    window.open('https://discord.com/app', '_blank');
+                    window.location.href = DISCORD_CHANNEL_URL;
                 }
-            });
+            }
         }
     </script>
 </body>

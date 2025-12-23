@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Group Divider for Discord</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 20px auto; padding: 20px; background: #f4f4f9; }
+        textarea { width: 100%; height: 100px; margin-bottom: 10px; }
+        .controls { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
+        button { padding: 10px 20px; cursor: pointer; background: #5865F2; color: white; border: none; border-radius: 5px; font-weight: bold; }
+        button:hover { background: #4752C4; }
+        #result { background: white; padding: 15px; border-radius: 5px; border: 1px solid #ccc; white-space: pre-wrap; margin-top: 20px; }
+        input[type="text"] { flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        /* スマホ向けの調整 */
+@media (max-width: 480px) {
+    body { padding: 10px; }
+    button { 
+        width: 100%; 
+        padding: 15px; 
+        font-size: 1.1rem; 
+    }
+    textarea { font-size: 16px; /* iPhoneで入力時にズームされるのを防ぐ */ }
+}
+    </style>
+</head>
+<body>
+
+    <h2>👥 グループ分けツール</h2>
+    
+    <label>メンバー名（改行区切り）:</label>
+    <textarea id="memberList" placeholder="田中&#13;&#10;佐藤&#13;&#10;鈴木..."></textarea>
+
+    <div class="controls">
+        <label>グループ数:</label>
+        <select id="groupCount">
+            <option value="2">2グループ</option>
+            <option value="3">3グループ</option>
+            <option value="4" selected>4グループ</option>
+        </select>
+    </div>
+
+    <div class="controls">
+        <label>Discord チャンネルURL:</label>
+        <input type="text" id="discordUrl" placeholder="https://discord.com/channels/サーバID/チャンネルID">
+    </div>
+
+    <button onclick="divideAndGo()">グループ分け ＆ Discordを開く</button>
+
+    <div id="result">結果がここに表示されます</div>
+
+    <script>
+        function divideAndGo() {
+            const text = document.getElementById('memberList').value.trim();
+            const n = parseInt(document.getElementById('groupCount').value);
+            const discordUrl = document.getElementById('discordUrl').value.trim();
+            
+            if (!text) { alert('メンバーを入力してください'); return; }
+
+            // メンバーを配列化してシャッフル
+            let members = text.split(/\n/).map(m => m.trim()).filter(m => m !== "");
+            for (let i = members.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [members[i], members[j]] = [members[j], members[i]];
+            }
+
+            // グループ分け（なるべく均等に）
+            let groups = Array.from({ length: n }, () => []);
+            members.forEach((member, index) => {
+                groups[index % n].push(member);
+            });
+
+            // 結果のテキスト整形
+            let resultText = "【グループ分け結果】\n";
+            groups.forEach((group, i) => {
+                if (group.length > 0) {
+                    resultText += `\nチーム ${i + 1}: ${group.join(', ')}`;
+                }
+            });
+
+            // 画面表示
+            document.getElementById('result').innerText = resultText;
+
+            // クリップボードにコピー
+            navigator.clipboard.writeText(resultText).then(() => {
+                alert('結果をコピーしました！Discordに貼り付けてください。');
+                // Discordを開く
+                if (discordUrl) {
+                    window.open(discordUrl, '_blank');
+                } else {
+                    window.open('https://discord.com/app', '_blank');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

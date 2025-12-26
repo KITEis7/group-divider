@@ -109,7 +109,7 @@
             groups.forEach((group, i) => {
                 const fullWidthNum = toFullWidth(i + 1);
                 // Discordのチャンネル投稿形式に合わせる（例: #パーティー1テキスト, メンバー1,メンバー2,...）
-                resultLines.push(`#⁠パーティー${fullWidthNum}テキスト　,${group.join(',')}`);
+                resultLines.push(`#パーティー${fullWidthNum}テキスト ,${group.join(',')}`);
             });
             currentResultText = resultLines.join('\n'); // 結果を保持
 

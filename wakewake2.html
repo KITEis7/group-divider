@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Party Divider</title>
+    <style>
+        body { font-family: sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background: #f4f4f9; color: #333; }
+        textarea { width: 100%; height: 150px; margin-bottom: 15px; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
+        
+        .button-group { display: flex; flex-direction: column; gap: 10px; }
+        
+        button { 
+            width: 100%; padding: 15px; border: none; border-radius: 8px; 
+            font-weight: bold; font-size: 1rem; cursor: pointer; transition: 0.2s;
+        }
+
+        .btn-shuffle { background: #ebedef; color: #4f5660; border: 1px solid #ccc; }
+        .btn-shuffle:active { background: #dbdee1; }
+
+        .btn-main { background: #5865F2; color: white; }
+        .btn-main:active { background: #4752C4; transform: scale(0.98); }
+
+        #result { 
+            background: #fff; padding: 15px; border-radius: 8px; border: 2px solid #5865F2; 
+            white-space: pre-wrap; margin-top: 15px; display: none; font-family: monospace; font-size: 0.95rem;
+        }
+        .hint { font-size: 0.85rem; color: #666; margin-top: 10px; text-align: center; line-height: 1.4; }
+        .discord-app-link {
+            display: block;
+            text-align: center;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #5865F2;
+            text-decoration: none;
+        }
+        .discord-app-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <h2 style="text-align: center;">👥 わけわけ</h2>
+    
+    <textarea id="memberList" placeholder="名前をスペースや改行で区切って入力..."></textarea>
+
+    <div class="button-group">
+        <button class="btn-shuffle" onclick="divide(false)">わけわけ / もう一度</button>
+        
+        <button id="confirmBtn" class="btn-main" onclick="tryOpenDiscordApp()" style="display: none;">結果をコピーして Discordへ</button>
+    </div>
+
+    <div id="result"></div>
+    <p class="hint">
+        「わけわけ」で振り分けられます。<br>
+        「Discordへ」を押すとコピーして＃雑談を開きます。
+    </p>
+
+    <script>
+        const DISCORD_CHANNEL_ID = '1464819144913584180'; // チャンネルIDのみ
+        const DISCORD_GUILD_ID = '1461500698419269664'; // サーバーIDのみ
+        const DISCORD_APP_URI_BASE = `discord://discord.com/channels/${DISCORD_GUILD_ID}/${DISCORD_CHANNEL_ID}`;
+
+        let currentResultText = ""; // コピー＆Discordへの遷移のために結果を保持
+
+        function divide(isFinal) { // isFinal は現在は使われていませんが、将来のために残します
+            const rawInput = document.getElementById('memberList').value;
+            let members = rawInput.split(/[\n\s　]+/).map(m => m.trim()).filter(m => m !== "");
+            
+            if (members.length === 0) { 
+                alert('メンバーを入力してください'); 
+                return; 
+            }
+
+            const count = members.length;
+            // 4人1組を基本とし、余りを均等に配分
+            const baseGroupSize = 4;
+            const numGroups = Math.ceil(count / baseGroupSize);
+            const remainder = count % numGroups;
+            const groupSizes = Array(numGroups).fill(Math.floor(count / numGroups));
+            for (let i = 0; i < remainder; i++) {
+                groupSizes[i]++;
+            }
+
+            // シャッフル
+            for (let i = members.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [members[i], members[j]] = [members[j], members[i]];
+            }
+
+            // 振り分け
+            let groups = [];
+            let memberIndex = 0;
+            for (let i = 0; i < numGroups; i++) {
+                const currentGroup = members.slice(memberIndex, memberIndex + groupSizes[i]);
+                groups.push(currentGroup);
+                memberIndex += groupSizes[i];
+            }
+
+            // テキスト整形
+            let resultLines = [];
+            groups.forEach((group, i) => {
+                resultLines.push(`#狩場${i + 1},${group.join(',')}`);
+            });
+            currentResultText = resultLines.join('\n'); // 結果を保持
+
+            // 画面表示
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerText = currentResultText;
+            resultDiv.style.display = 'block';
+
+            // 確定ボタンを表示
+            document.getElementById('confirmBtn').style.display = 'block';
+        }
+
+        // Discordアプリへの遷移を試みる関数
+        function tryOpenDiscordApp() {
+            if (!navigator.clipboard) {
+                alert("クリップボードへのコピーがサポートされていません。手動でコピーしてください。");
+                window.open(DISCORD_CHANNEL_URL, '_blank'); // Web版へのフォールバック
+                return;
+            }
+
+            navigator.clipboard.writeText(currentResultText).then(() => {
+                // コピー成功
+                let discordUri = DISCORD_APP_URI_BASE;
+                
+                // OS検出 (簡易的)
+                const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+                let os = "unknown";
+                if (/windows phone/i.test(userAgent) || /win(dows )?/.test(userAgent)) {
+                    os = "windows";
+                } else if (/android/i.test(userAgent)) {
+                    os = "android"; // AndroidアプリもURIスキームで開けます
+                } else if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+                    os = "ios"; // iOSアプリもURIスキームで開けます
+                } else if (/macintosh|mac os x/.test(userAgent)) {
+                    os = "macos";
+                } else if (/linux/i.test(userAgent)) {
+                    os = "linux";
+                }
+
+                // URIスキームを試みる (Windows, macOS, Linux, Android, iOSで動作する可能性あり)
+                // Discordアプリがインストールされ、URIスキームが登録されていれば機能します。
+                // これで開けない場合は、Web版にフォールバックさせるのが現実的です。
+                
+                // Safari (macOS/iOS) では、window.open() が直接 URI スキームを
+                // 処理しない場合があるので、工夫が必要な場合があります。
+                // しかし、多くのモダンブラウザでは window.location.href で試せます。
+
+                const link = document.createElement('a');
+                link.href = discordUri;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+
+                let opened = false;
+                // タイムアウトを設定して、アプリが開かなかった場合の処理を定義
+                const timeout = setTimeout(() => {
+                    if (!opened) {
+                        // アプリが開かなかった場合 (またはタイムアウトした場合)
+                        // Web版へのリンクを表示するか、自動でWeb版に遷移させる
+                        alert('Discordアプリが開かない、または検出できませんでした。Web版に遷移します。');
+                        window.open('https://discord.com/channels/' + DISCORD_GUILD_ID + '/' + DISCORD_CHANNEL_ID, '_blank');
+                    }
+                }, 1500); // 1.5秒後にチェック
+
+                try {
+                    // link.click() はセキュリティ上の理由で直接実行できない場合があるので、
+                    // window.location.href を使うのが一般的です。
+                    // しかし、アプリ起動を試みるために link.click() も試してみます。
+                    // 多くのブラウザでは、ユーザー操作（ボタンクリックなど）から
+                    // 呼び出された場合のみ、link.click() が成功します。
+                    
+                    // Safari (iOS/macOS) では、`window.open(discordUri)` の方が
+                    // `window.location.href` より、URIスキームを処理しやすい場合があります。
+                    if (navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome')) {
+                        window.open(discordUri);
+                    } else {
+                        window.location.href = discordUri;
+                    }
+                    opened = true; // 起動を試みたフラグ
+                    clearTimeout(timeout); // タイムアウトをクリア
+                    
+                    // ユーザーにアプリで開いたか確認するメッセージを表示する
+                    // ユーザーが「はい」を押せばそのまま（アプリが開いたと仮定）、
+                    // 「いいえ」を押せばWeb版に遷移させる、といったインタラクティブな処理も可能ですが、
+                    // ここではシンプルにWeb版へのフォールバックに留めます。
+                    // alert('Discordアプリで開かれたはずです。開かれなかった場合はWeb版に遷移します。');
+                    
+                    // アプリが開いたかどうかの確実な判定はJavaScriptではできないため、
+                    // 時間差でWeb版へのフォールバックを提示するのが現実的です。
+                    // 上記のtimeout処理がそれを担います。
+
+                } catch (e) {
+                    // エラーが発生した場合
+                    clearTimeout(timeout);
+                    alert('Discordアプリを開けませんでした。Web版に遷移します。\nエラー: ' + e.message);
+                    window.open('https://discord.com/channels/' + DISCORD_GUILD_ID + '/' + DISCORD_CHANNEL_ID, '_blank');
+                }
+
+            }).catch(err => {
+                // コピー失敗
+                alert('クリップボードへのコピーに失敗しました。Discord Web版に遷移します。');
+                window.open('https://discord.com/channels/' + DISCORD_GUILD_ID + '/' + DISCORD_CHANNEL_ID, '_blank');
+            });
+        }
+        
+        // ページ読み込み時に、Discordアプリへのリンクを表示するかどうかを判断する (オプション)
+        // 例: Windows PCであることが検出されたら、アプリへのリンクを提示する
+        // function suggestAppLink() {
+        //     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        //     if (/windows/i.test(userAgent)) {
+        //         const hintElement = document.querySelector('.hint');
+        //         const appLink = document.createElement('a');
+        //         appLink.href = DISCORD_APP_URI_BASE;
+        //         appLink.className = 'discord-app-link';
+        //         appLink.textContent = '▼ Discordアプリで開く';
+        //         appLink.target = '_blank'; // 新しいタブで開く
+        //         hintElement.parentNode.insertBefore(appLink, hintElement.nextSibling);
+        //     }
+        // }
+        // document.addEventListener('DOMContentLoaded', suggestAppLink);
+
+    </script>
+</body>
+
+</html>
